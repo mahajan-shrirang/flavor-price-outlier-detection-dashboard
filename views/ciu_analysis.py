@@ -25,46 +25,52 @@ def main():
     st.subheader("Select Group By")
     group_by = st.multiselect(
         "Group By",
-        options=['Country', 'Flavor', 'Region', 'Product', 'Supplier'],
+        options=['Segment', 'Brand', 'Application', 'Product', 'Flavor', 'Supplier', 'Region', 'Process', 'Format', 'Country', 'RM code'],
         default=['Flavor', 'Region']
     )
 
-    grouped_df = df.groupby(group_by)
+    if len(group_by) != 0:
+        grouped_df = df.groupby(group_by)
 
-    grouped_list = []
-    for name, group in grouped_df:
-        temp_df, lower_bound, upper_bound = get_outliers(group)
-        grouped_list.append(temp_df)
+        grouped_list = []
+        for name, group in grouped_df:
+            temp_df, lower_bound, upper_bound = get_outliers(group)
+            grouped_list.append(temp_df)
 
-    grouped_df = pd.concat(grouped_list).groupby(group_by).agg({'Total CIU curr / vol': ['count', 'min', 'mean', 'median', 'max', 'std'], 'Flavor Spend': 'sum', 'Outlier': 'sum'}).reset_index()
+        grouped_df = pd.concat(grouped_list).groupby(group_by).agg({'Total CIU curr / vol': ['count', 'min', 'mean', 'median', 'max', 'std'], 'Flavor Spend': 'sum', 'Outlier': 'sum'}).reset_index()
 
-    st.header("Aggregated CIU Stats")
-    st.write(f"Aggregated CIU stats by {group_by}:")
-    selection = st.dataframe(grouped_df, on_select="rerun", selection_mode="single-row", use_container_width=True)
-    if len(selection['selection']['rows']) != 0:
-        selected_row = grouped_df.iloc[selection['selection']['rows'][0]]
-        selected_group = {col: selected_row[col][0] for col in group_by}
-        st.subheader("Selected Group:")
-        for col in group_by:
-            st.write(f"{col}: {selected_group[col]}")
+        st.header("Aggregated CIU Stats")
+        st.write(f"Aggregated CIU stats by {group_by}:")
+            
+        selection = st.dataframe(grouped_df, on_select="rerun", selection_mode="single-row", use_container_width=True)
+        if len(selection['selection']['rows']) != 0:
+            selected_row = grouped_df.iloc[selection['selection']['rows'][0]]
+            selected_group = {col: selected_row[col][0] for col in group_by}
+            st.subheader("Selected Group:")
+            for col in group_by:
+                st.write(f"{col}: {selected_group[col]}")
+            filtered_df = df.copy()
+            for col in group_by:
+                filtered_df = filtered_df[filtered_df[col] == selected_group[col]]
+
+        # filtered_df = df.copy()
+        # columns = st.columns(len(group_by))
+        # for i, col in enumerate(group_by):
+        #     with columns[i]:
+        #         selected_group = st.selectbox(
+        #             "Select Group",
+        #             options=filtered_df[col].unique().tolist(),
+        #             index=0,
+        #             key=f'outlier_group_select_{col}_1'
+        #         )
+
+        if len(selection['selection']['rows']) == 0:
+            st.warning("Please select a group to analyze CIU outliers.")
+            return
+    else:
+        st.write(df)
         filtered_df = df.copy()
-        for col in group_by:
-            filtered_df = filtered_df[filtered_df[col] == selected_group[col]]
-
-    # filtered_df = df.copy()
-    # columns = st.columns(len(group_by))
-    # for i, col in enumerate(group_by):
-    #     with columns[i]:
-    #         selected_group = st.selectbox(
-    #             "Select Group",
-    #             options=filtered_df[col].unique().tolist(),
-    #             index=0,
-    #             key=f'outlier_group_select_{col}_1'
-    #         )
-
-    if len(selection['selection']['rows']) == 0:
-        st.warning("Please select a group to analyze CIU outliers.")
-        return
+        st.warning("No group selected, showing overall CIU distribution.")
 
     st.header("CIU Outlier Detection and Distribution")
     st.subheader("CIU Distribution")

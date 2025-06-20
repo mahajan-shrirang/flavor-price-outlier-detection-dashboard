@@ -11,7 +11,8 @@ def main():
         df = pd.read_csv(uploaded_file)
         st.success("File uploaded successfully!")
 
-        df = df.drop(columns=['New #'])
+        if 'New #' in df.columns:
+            df = df.drop(columns=['New #'])
         df = convert_to_float(df)
 
         st.session_state['data'] = df  # Store the cleaned data in session state
