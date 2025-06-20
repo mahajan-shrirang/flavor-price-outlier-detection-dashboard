@@ -22,12 +22,13 @@ def main():
     with c2:
         y_axis_col = st.selectbox(
             "Select Y-axis Column",
-            options=['Flavor Spend', 'Total CIU'],
+            options=['Flavor Spend', 'CIU', 'Total CIU'],
             index=0,
             key='y_axis_col'
         )
         y_axis_options = {
             'Flavor Spend': 'Flavor Spend',
+            'CIU': 'CIU curr / vol',
             'Total CIU': 'Total CIU curr / vol'
         }
         y_axis_col = y_axis_options[y_axis_col]
