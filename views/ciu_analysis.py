@@ -41,8 +41,25 @@ def main():
 
         st.header("Aggregated CIU Stats")
         st.write(f"Aggregated CIU stats by {group_by}:")
-            
-        selection = st.dataframe(grouped_df, on_select="rerun", selection_mode="single-row", use_container_width=True)
+
+        display_df = grouped_df.copy()
+        display_df = display_df.round(2)
+        # Convert to Single Index for better readability
+        display_df_columns = [' '.join(col).strip() if isinstance(col, tuple) else col for col in display_df.columns.values]
+
+        display_df.columns = display_df_columns
+        display_df = display_df.rename(columns={
+            'Total CIU curr / vol count': 'Record Count', 
+            'Total CIU curr / vol min': 'Min CIU [$]',
+            'Total CIU curr / vol max': 'Max CIU [$]',
+            'Total CIU curr / vol mean': 'Mean CIU [$]',
+            'Total CIU curr / vol median': 'Median CIU [$]',
+            'Total CIU curr / vol std': 'CIU Std Dev [$]',
+            'Flavor Spend sum': 'Flavor Spend Sum [$]',
+            'Outlier sum': 'Outliers Count'
+        })
+
+        selection = st.dataframe(display_df, on_select="rerun", selection_mode="single-row", use_container_width=True)
         if len(selection['selection']['rows']) != 0:
             selected_row = grouped_df.iloc[selection['selection']['rows'][0]]
             selected_group = {col: selected_row[col][0] for col in group_by}
@@ -78,12 +95,12 @@ def main():
         'data': {
             "x": filtered_df['Total CIU curr / vol'],
             'type': 'histogram',
-            'name': 'TotalCIU curr / vol Distribution',
+            'name': 'Total CIU curr / vol Distribution',
             'marker': {'color': 'lightgreen', 'opacity': 0.7},
         },
         'layout': {
             'title': 'Total CIU curr / vol Distribution',
-            'xaxis': {'title': 'Total CIU curr / vol'},
+            'xaxis': {'title': 'Total CIU curr / vol [$]'},
             'yaxis': {'title': 'Count'},
             'template': 'plotly_white'
         }
@@ -97,6 +114,9 @@ def main():
 
     lower_bound = lower_quantile - 1.5 * iqr
     upper_bound = upper_quantile + 1.5 * iqr
+
+    if lower_bound < 0:
+        lower_bound = 0
 
     filtered_df["Outlier"] = filtered_df["Total CIU curr / vol"].apply(
         lambda x: 1 if (x < lower_bound or x > upper_bound) else 0
