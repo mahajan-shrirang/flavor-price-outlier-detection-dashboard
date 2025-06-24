@@ -12,7 +12,7 @@ def main():
         st.warning("Please upload your data on the Data Upload page to start analyzing Spend Impact.")
         return
 
-    options_columns = ['Product', 'Flavor', 'Supplier', 'Brand', 'Country', 'Format', 'Application', 'Segment']
+    options_columns = ['Product', 'Flavor', 'Supplier', 'Brand', 'Country', 'Format', 'Application', 'Segment', 'RM code', 'Region', 'Process']
 
     c1, c2 = st.columns(2)
     with c1:
@@ -69,10 +69,18 @@ def main():
         else:
             st.warning("No filters selected, displaying all data.")
 
-    if y_axis_col not in ['CIU curr / vol', 'Total CIU curr / vol']:
-        top_products = df.groupby(x_axis_col)[y_axis_col].sum().nlargest(10).reset_index()
+    st.write(f"Total records after filtering: {len(df)}")
+    value = (len(df) // 2) + 1
+    if len(df) < 10:
+        value = len(df)
     else:
-        top_products = df.groupby(x_axis_col)[y_axis_col].mean().nlargest(10).reset_index()
+        value = 10
+    count_of_records = st.number_input("Number of Records to Display", min_value=1, max_value=len(df), value=value, step=1, key='count_of_records')
+
+    if y_axis_col not in ['CIU curr / vol', 'Total CIU curr / vol']:
+        top_products = df.groupby(x_axis_col)[y_axis_col].sum().nlargest(count_of_records).reset_index()
+    else:
+        top_products = df.groupby(x_axis_col)[y_axis_col].mean().nlargest(count_of_records).reset_index()
     top_products[y_axis_col] = top_products[y_axis_col].round(2)
     top_products = top_products.sort_values(by=y_axis_col, ascending=False)
 
