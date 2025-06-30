@@ -6,6 +6,7 @@ from views import (
     data_upload,
     spend_impact
 )
+from views.ai_recommendation import home_page
 
 st.set_page_config(page_title="Data Analyser", page_icon=":bar_chart:", layout="wide")
 
@@ -15,8 +16,8 @@ with st.sidebar:
     st.write("Select a page to navigate:")
     page = option_menu(
         menu_title=None,
-        options=["Data Upload", 'CIU Analysis', "Spend Impact"], 
-        icons=['cloud-upload', 'bar-chart', 'bag'],
+        options=["Data Upload", 'CIU Analysis', "Spend Impact", "AI Recommendation"], 
+        icons=['cloud-upload', 'bar-chart', 'bag', 'robot'],
         menu_icon="list", default_index=0
     )
 
@@ -26,5 +27,7 @@ elif page == "CIU Analysis":
     ciu_analysis.main()
 elif page == "Spend Impact":
     spend_impact.main()
+elif page == "AI Recommendation":
+    home_page.main()
 else:
     st.error("Page not found. Please select a valid page from the sidebar.")
