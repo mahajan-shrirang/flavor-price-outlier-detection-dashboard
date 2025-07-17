@@ -8,17 +8,19 @@ from views import (
 )
 from views.ai_recommendation import home_page
 from views.clustering_analysis import cluster_analysis_page
+from views.risk_analysis import risk_analysis_page
+from views.portfolio_optimization import portfolio_optimization_page
 
-st.set_page_config(page_title="Data Analyser", page_icon=":bar_chart:", layout="wide")
+st.set_page_config(page_title="Flavor Data Dashboard", page_icon=":bar_chart:", layout="wide")
 
 
 with st.sidebar:
-    st.title("Data Analyser")
+    st.title("Flavor Data Dashboard")
     st.write("Select a page to navigate:")
     page = option_menu(
         menu_title=None,
-        options=["Data Upload", 'CIU Analysis', "Spend Impact", "AI Recommendation", "Clustering Analysis"], 
-        icons=['cloud-upload', 'bar-chart', 'bag', 'robot', 'search'],
+        options=["Data Upload", 'CIU Analysis', "Spend Impact", "AI Recommendation", "Clustering Analysis", "Risk Analysis", "Portfolio Optimization"], 
+        icons=['cloud-upload', 'bar-chart', 'bag', 'robot', 'search', 'shield-exclamation', 'briefcase'],
         menu_icon="list", default_index=0
     )
 
@@ -32,5 +34,9 @@ elif page == "AI Recommendation":
     home_page.main()
 elif page == "Clustering Analysis":
     cluster_analysis_page.main()
+elif page == "Risk Analysis":
+    risk_analysis_page.main()
+elif page == "Portfolio Optimization":
+    portfolio_optimization_page.main()
 else:
     st.error("Page not found. Please select a valid page from the sidebar.")
