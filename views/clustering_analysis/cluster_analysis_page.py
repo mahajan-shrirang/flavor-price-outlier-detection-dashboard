@@ -12,17 +12,21 @@ def main():
         return
     
     matching_features = st.multiselect(
-        "Select Grouping Featuresfor Clustering Analysis",
+        "Select Grouping Features",
         options=df.columns.tolist(),
         default=st.session_state.get('clustering_matching_features', []),
-        help="Clustering Analysis will use these features to find similar records.",
+        help="These features will be used to group the data before clustering analysis.",
     )
+
+    if not matching_features or len(matching_features) == 0:
+        st.warning("Please select at least one grouping feature to proceed with Clustering Analysis.")
+        return
 
     feature_set = st.multiselect(
         "Select Features for Clustering Analysis",
         options=df.columns.tolist(),
         default=st.session_state.get('clustering_features', []),
-        help="Select the features you want to use for clustering analysis."
+        help="These features will be used for clustering analysis. Ensure to select relevant features that can help in identifying patterns in the data."
     )
 
     if not feature_set or len(feature_set) == 0:
@@ -42,7 +46,7 @@ def main():
             X = pd.get_dummies(X, drop_first=True)
             X = X.replace({True: 1, False: 0})
 
-            groups = df.groupby(['Product', 'Flavor'])
+            groups = df.groupby(matching_features)
 
             group_list = []
             progress_bar = st.progress(0)
@@ -62,10 +66,12 @@ def main():
                     optimal_k = k_clusters[inertias.index(min(inertias))]
                     kmeans = KMeans(n_clusters=optimal_k, random_state=42)
                     group['Cluster'] = kmeans.fit_predict(training_data)
+                    group['Group'] = group['Group'].apply(lambda x: f"Group {x}")
+                    group['Cluster'] = group['Cluster'].apply(lambda x: f"Cluster {x}")
                     group_list.append(group)
                 else:
-                    group['Group'] = idx
-                    group['Cluster'] = 0
+                    group['Group'] = f"Group {idx}"
+                    group['Cluster'] = 'Cluster 0'
                     group_list.append(group)
 
             progress_bar.progress(1.0, text="Processing complete. Compiling results...")
@@ -79,8 +85,7 @@ def main():
         group_list: pd.DataFrame = st.session_state['clustering_analysis_data']
 
         group_list_grouped = group_list.groupby(['Group', 'Cluster']).agg({
-            'Product': 'first',
-            'Flavor': 'first',
+            **{matching_feature: 'first' for matching_feature in matching_features},
             'CIU curr / vol': ['count', 'mean', 'std', 'min', 'max'],
             # 'FG volume / year': ['mean', 'std', 'min', 'max'],
             # 'Total CIU curr / vol': ['mean', 'std', 'min', 'max'],

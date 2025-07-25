@@ -18,7 +18,7 @@ def convert_to_float(df: pd.DataFrame) -> pd.DataFrame:
     df['Total CIU curr / vol'] = df['Total CIU curr / vol'].astype(float)
 
     df['Multiple Flavors'] = df['Multiple Flavors'].fillna(0)
-    df['Multiple Flavors'] = df['Multiple Flavors'].map(lambda x: 1 if x == 'x' else 0)
+    df['Multiple Flavors'] = df['Multiple Flavors'].map(lambda row: 1 if row in ['x', 'y'] else 0)
     df['Multiple Flavors'] = df['Multiple Flavors'].astype(int)
 
     return df

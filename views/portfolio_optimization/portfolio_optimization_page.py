@@ -127,7 +127,7 @@ def simple_optimize_portfolio(df, analysis_dimension, cost_weight=0.5, diversity
         method='SLSQP',
         bounds=bounds,
         constraints=constraints,
-        options={'ftol': 1e-8, 'disp': False, 'maxiter': 10000}
+        options={'ftol': 1e-8, 'disp': False, 'maxiter': 1000000}
     )
     
     if result.success:
@@ -223,544 +223,280 @@ def main():
     This tool helps you optimize your supplier allocation to balance cost, diversity, and risk.
     """)
     
-    # Two simple tabs for the optimization workflow
-    tabs = st.tabs(["Portfolio Analysis & Optimization", "Scenario Testing"])
+    # Get primary dimension for analysis (usually Supplier)
+    analysis_dimension = st.selectbox(
+        "Select dimension to optimize",
+        options=["Supplier", "Region", "Country"],
+        index=0,
+        help="Choose which dimension you want to optimize allocation across"
+    )
     
-    with tabs[0]:
-        st.header("Portfolio Analysis & Optimization")
+    # Optional product filter
+    product_filter = st.multiselect(
+        "Filter by Product (optional)",
+        options=df['Product'].unique(),
+        default=[],
+        help="Select specific products to focus the optimization on"
+    )
+    
+    filtered_df = df
+    if product_filter:
+        filtered_df = df[df['Product'].isin(product_filter)]
         
-        # Get primary dimension for analysis (usually Supplier)
-        analysis_dimension = st.selectbox(
-            "Select dimension to optimize",
-            options=["Supplier", "Region", "Country"],
-            index=0,
-            help="Choose which dimension you want to optimize allocation across"
-        )
-        
-        # Optional product filter
-        product_filter = st.multiselect(
-            "Filter by Product (optional)",
-            options=df['Product'].unique(),
-            default=[],
-            help="Select specific products to focus the optimization on"
-        )
-        
-        filtered_df = df
-        if product_filter:
-            filtered_df = df[df['Product'].isin(product_filter)]
-            
-        if filtered_df.empty:
-            st.warning("No data matches your filter criteria.")
-            return
-        
-        # Calculate current allocation
-        allocation_df = filtered_df.groupby(analysis_dimension).agg({
-            'Flavor Spend': 'sum',
-            'Total CIU curr / vol': ['mean', 'std']
-        })
-        
-        # Format column names for readability
-        allocation_df.columns = [f"{col[0]}_{col[1]}" if isinstance(col, tuple) else col for col in allocation_df.columns]
-        
-        allocation_df = allocation_df.reset_index()
+    if filtered_df.empty:
+        st.warning("No data matches your filter criteria.")
+        return
+    
+    # Calculate current allocation
+    allocation_df = filtered_df.groupby(analysis_dimension).agg({
+        'Flavor Spend': 'sum',
+        'Total CIU curr / vol': ['mean', 'std']
+    })
+    
+    # Format column names for readability
+    allocation_df.columns = [f"{col[0]}_{col[1]}" if isinstance(col, tuple) else col for col in allocation_df.columns]
+    
+    allocation_df = allocation_df.reset_index()
 
-        # Calculate totals and percentages
-        total_spend = allocation_df['Flavor Spend_sum'].sum()
-        allocation_df['Percentage'] = (allocation_df['Flavor Spend_sum'] / total_spend) * 100
-        
-        # Calculate HHI for concentration
-        current_shares = dict(zip(allocation_df[analysis_dimension], allocation_df['Percentage'] / 100))
-        hhi = calculate_hhi(current_shares)
-        
-        # Display current metrics
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Spend", f"${total_spend:,.2f}")
-        with col2:
-            weighted_ciu = (allocation_df['Total CIU curr / vol_mean'] * allocation_df['Flavor Spend_sum']).sum() / total_spend
-            st.metric("Weighted Avg CIU", f"${weighted_ciu:.2f}")
-        with col3:
-            st.metric("HHI Index", f"{hhi:.1f}", help="Herfindahl-Hirschman Index - measures concentration")
-        
-        # Show current allocation in a chart
-        st.subheader(f"Current {analysis_dimension} Allocation")
-        
-        # Format data for display
-        display_df = allocation_df.copy()
-        display_df['Flavor Spend_sum'] = display_df['Flavor Spend_sum'].round(2)
-        display_df['Percentage'] = display_df['Percentage'].round(2)
-        display_df['Total CIU curr / vol_mean'] = display_df['Total CIU curr / vol_mean'].round(2)
-        
-        fig = px.pie(
-            allocation_df, 
-            values='Flavor Spend_sum', 
-            names=analysis_dimension,
-            title=f'Current {analysis_dimension} Allocation',
-            color_discrete_sequence=px.colors.sequential.Greens
-        )
-        st.plotly_chart(fig)
-        
-        # Show allocation table
-        st.dataframe(
-            display_df[[analysis_dimension, 'Flavor Spend_sum', 'Percentage', 'Total CIU curr / vol_mean']].rename(
-                columns={
-                    'Flavor Spend_sum': 'Total Spend',
-                    'Percentage': 'Allocation %',
-                    'Total CIU curr / vol_mean': 'Avg CIU'
-                }
-            )
-        )
-        
-        # Optimization parameters
-        st.subheader("Optimization Settings")
-        st.markdown("Adjust these settings to balance your optimization goals:")
-        
-        # Simple sliders for weights
-        col1, col2 = st.columns(2)
-        with col1:
-            cost_weight = st.slider(
-                "Cost Importance",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.5,
-                step=0.1,
-                help="Higher values prioritize cost reduction"
-            )
-        with col2:
-            diversity_weight = 1.0 - cost_weight
-            st.slider(
-                "Diversity Importance",
-                min_value=0.0,
-                max_value=1.0,
-                value=diversity_weight,
-                step=0.1,
-                disabled=True,
-                help="Automatically adjusted to ensure weights sum to 1.0"
-            )
-        
-        # Budget settings
-        budget_col1, budget_col2 = st.columns(2)
-        with budget_col1:
-            budget_change = st.slider(
-                "Budget Change",
-                min_value=-20,
-                max_value=20,
-                value=0,
-                step=5,
-                format="%d%%",
-                help="Adjust total budget up or down"
-            )
-        with budget_col2:
-            target_spend = total_spend * (1 + budget_change/100)
-            st.metric(
-                "Target Spend", 
-                f"${target_spend:,.2f}",
-                f"{budget_change:+.1f}%" if budget_change != 0 else None
-            )
-        
-        # Allocation constraints
-        st.subheader("Allocation Constraints")
-        constraint_col1, constraint_col2 = st.columns(2)
-        with constraint_col1:
-            min_allocation = st.slider(
-                "Minimum Allocation per Supplier",
-                min_value=0,
-                max_value=25,
-                value=5,
-                step=1,
-                format="%d%%",
-                help="Minimum percentage allocation per supplier"
-            )
-        with constraint_col2:
-            max_allocation = st.slider(
-                "Maximum Allocation per Supplier",
-                min_value=min_allocation,
-                max_value=100,
-                value=min(75, 100),
-                step=5,
-                format="%d%%",
-                help="Maximum percentage allocation to any single supplier"
-            )
-        
-        # Run optimization button
-        if st.button("Optimize Portfolio", type="primary"):
-            with st.spinner("Running optimization..."):
-                optimized_allocation, metrics = simple_optimize_portfolio(
-                    filtered_df,
-                    analysis_dimension,
-                    cost_weight,
-                    diversity_weight,
-                    target_spend,
-                    min_allocation,
-                    max_allocation
-                )
-                
-                if not metrics:
-                    st.error("Optimization failed. Please adjust your parameters and try again.")
-                else:
-                    # Display optimization results
-                    st.subheader("Optimization Results")
-                    
-                    # Metrics comparison
-                    metric_col1, metric_col2, metric_col3 = st.columns(3)
-                    with metric_col1:
-                        st.metric(
-                            "Average CIU", 
-                            f"${metrics['weighted_avg_ciu']:.2f}",
-                            f"{metrics['ciu_change']:.1f}%",
-                            delta_color="normal" if metrics['ciu_change'] >= 0 else "inverse"
-                        )
-                        st.caption(f"Cost Weight: {cost_weight:.1f}")
-                    with metric_col2:
-                        st.metric(
-                            "HHI Index", 
-                            f"{metrics['hhi']:.1f}",
-                            f"{metrics['hhi_change']:.1f}%",
-                            delta_color="normal" if metrics['hhi_change'] >= 0 else "inverse"
-                        )
-                        st.caption(f"Diversity Weight: {diversity_weight:.1f}")
-                    with metric_col3:
-                        # Overall optimization metric
-                        optimization_score = (metrics['ciu_change'] + metrics['hhi_change'])/2
-                        st.metric(
-                            "Overall Improvement", 
-                            f"{optimization_score:.1f}%",
-                            delta_color="normal" if optimization_score >= 0 else "inverse"
-                        )
-                    
-                    # Create comparison table
-                    comparison_data = []
-                    current_allocation = dict(zip(allocation_df[analysis_dimension], allocation_df['Flavor Spend_sum']))
-                    
-                    for entity in set(list(current_allocation.keys()) + list(optimized_allocation.keys())):
-                        current = current_allocation.get(entity, 0)
-                        optimized = optimized_allocation.get(entity, 0)
-                        change = optimized - current
-                        change_pct = (change / current * 100) if current > 0 else 0
-                        
-                        comparison_data.append({
-                            analysis_dimension: entity,
-                            'Current': current,
-                            'Optimized': optimized,
-                            'Change': change,
-                            'Change %': change_pct
-                        })
-                    
-                    comparison_df = pd.DataFrame(comparison_data)
-                    comparison_df = comparison_df.sort_values('Optimized', ascending=False)
-                    
-                    # Calculate percentages for visualization
-                    comparison_df['Current %'] = comparison_df['Current'] / comparison_df['Current'].sum() * 100
-                    comparison_df['Optimized %'] = comparison_df['Optimized'] / comparison_df['Optimized'].sum() * 100
-                    
-                    # Format for display
-                    comparison_df['Current'] = comparison_df['Current'].round(2)
-                    comparison_df['Optimized'] = comparison_df['Optimized'].round(2)
-                    comparison_df['Change'] = comparison_df['Change'].round(2)
-                    comparison_df['Change %'] = comparison_df['Change %'].round(2)
-                    comparison_df['Current %'] = comparison_df['Current %'].round(2)
-                    comparison_df['Optimized %'] = comparison_df['Optimized %'].round(2)
-                    
-                    # Show comparison chart
-                    fig = go.Figure()
-                    
-                    fig.add_trace(go.Bar(
-                        x=comparison_df[analysis_dimension],
-                        y=comparison_df['Current %'],
-                        name='Current Allocation (%)',
-                        marker_color='lightblue'
-                    ))
-                    
-                    fig.add_trace(go.Bar(
-                        x=comparison_df[analysis_dimension],
-                        y=comparison_df['Optimized %'],
-                        name='Optimized Allocation (%)',
-                        marker_color='lightgreen'
-                    ))
-                    
-                    fig.update_layout(
-                        title='Current vs. Optimized Allocation (%)',
-                        xaxis_title=analysis_dimension,
-                        yaxis_title='Allocation (%)',
-                        barmode='group',
-                        template='plotly_white'
-                    )
-                    
-                    st.plotly_chart(fig)
-                    
-                    # Show comparison table
-                    st.dataframe(comparison_df)
-                    
-                    # Key recommendations
-                    st.subheader("Key Recommendations")
-                    
-                    # Find top increases and decreases
-                    top_changes = comparison_df.sort_values(by='Change', key=abs, ascending=False).head(5)
-                    
-                    for _, row in top_changes.iterrows():
-                        if row['Change'] > 0:
-                            st.info(f"Increase allocation to {row[analysis_dimension]} by ${row['Change']:,.2f} ({row['Change %']:.1f}%)")
-                        elif row['Change'] < 0:
-                            st.warning(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")
+    # Calculate totals and percentages
+    total_spend = allocation_df['Flavor Spend_sum'].sum()
+    allocation_df['Percentage'] = (allocation_df['Flavor Spend_sum'] / total_spend) * 100
     
-    with tabs[1]:
-        st.header("Scenario Testing")
-        
-        st.markdown("""
-        Test how your portfolio would perform under different scenarios:
-        - Price changes for specific suppliers
-        - Budget changes
-        """)
-        
-        # Get primary dimension for analysis (usually Supplier)
-        analysis_dimension = st.selectbox(
-            "Select dimension for scenarios",
-            options=["Supplier", "Region", "Country"],
-            index=0,
-            key="scenario_dimension"
+    # Calculate HHI for concentration
+    current_shares = dict(zip(allocation_df[analysis_dimension], allocation_df['Percentage'] / 100))
+    hhi = calculate_hhi(current_shares)
+    
+    # Display current metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Spend", f"${total_spend:,.2f}")
+    with col2:
+        weighted_ciu = (allocation_df['Total CIU curr / vol_mean'] * allocation_df['Flavor Spend_sum']).sum() / total_spend
+        st.metric("Weighted Avg CIU", f"${weighted_ciu:.2f}")
+    with col3:
+        st.metric("HHI Index", f"{hhi:.1f}", help="Herfindahl-Hirschman Index - measures concentration")
+    
+    # Show current allocation in a chart
+    st.subheader(f"Current {analysis_dimension} Allocation")
+    
+    # Format data for display
+    display_df = allocation_df.copy()
+    display_df['Flavor Spend_sum'] = display_df['Flavor Spend_sum'].round(2)
+    display_df['Percentage'] = display_df['Percentage'].round(2)
+    display_df['Total CIU curr / vol_mean'] = display_df['Total CIU curr / vol_mean'].round(2)
+    
+    fig = px.pie(
+        allocation_df, 
+        values='Flavor Spend_sum', 
+        names=analysis_dimension,
+        title=f'Current {analysis_dimension} Allocation',
+        color_discrete_sequence=px.colors.sequential.Greens
+    )
+    st.plotly_chart(fig)
+    
+    # Show allocation table
+    st.dataframe(
+        display_df[[analysis_dimension, 'Flavor Spend_sum', 'Percentage', 'Total CIU curr / vol_mean']].rename(
+            columns={
+                'Flavor Spend_sum': 'Total Spend',
+                'Percentage': 'Allocation %',
+                'Total CIU curr / vol_mean': 'Avg CIU'
+            }
         )
-        
-        # Optional product filter
-        product_filter = st.multiselect(
-            "Filter by Product (optional)",
-            options=df['Product'].unique(),
-            default=[],
-            key="scenario_product_filter"
+    )
+    
+    # Optimization parameters
+    st.subheader("Optimization Settings")
+    st.markdown("Adjust these settings to balance your optimization goals:")
+    
+    # Simple sliders for weights
+    col1, col2 = st.columns(2)
+    with col1:
+        cost_weight = st.slider(
+            "Cost Importance",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.1,
+            help="Higher values prioritize cost reduction"
         )
-        
-        filtered_df = df
-        if product_filter:
-            filtered_df = df[df['Product'].isin(product_filter)]
-        
-        # Calculate current allocation for reference
-        current_df = filtered_df.groupby(analysis_dimension).agg({
-            'Flavor Spend': 'sum',
-            'Total CIU curr / vol': 'mean'
-        }).reset_index()
-        
-        current_allocation = dict(zip(current_df[analysis_dimension], current_df['Flavor Spend']))
-        current_ciu = dict(zip(current_df[analysis_dimension], current_df['Total CIU curr / vol']))
-        
-        # Choose scenario type
-        scenario_type = st.radio(
-            "Select scenario type",
-            options=["Price Change", "Budget Change"],
-            horizontal=True
+    with col2:
+        diversity_weight = 1.0 - cost_weight
+        st.slider(
+            "Diversity Importance",
+            min_value=0.0,
+            max_value=1.0,
+            value=diversity_weight,
+            step=0.1,
+            disabled=True,
+            help="Automatically adjusted to ensure weights sum to 1.0"
         )
-        
-        if scenario_type == "Price Change":
-            st.subheader("Price Change Scenario")
-            
-            # Select entity for price change
-            target_entity = st.selectbox(
-                f"Select {analysis_dimension} for price change",
-                options=current_df[analysis_dimension].tolist()
+    
+    # Budget settings
+    budget_col1, budget_col2 = st.columns(2)
+    with budget_col1:
+        budget_change = st.slider(
+            "Budget Change",
+            min_value=-20,
+            max_value=20,
+            value=0,
+            step=5,
+            format="%d%%",
+            help="Adjust total budget up or down"
+        )
+    with budget_col2:
+        target_spend = total_spend * (1 + budget_change/100)
+        st.metric(
+            "Target Spend", 
+            f"${target_spend:,.2f}",
+            f"{budget_change:+.1f}%" if budget_change != 0 else None
+        )
+    
+    # Allocation constraints
+    st.subheader("Allocation Constraints")
+    constraint_col1, constraint_col2 = st.columns(2)
+    with constraint_col1:
+        min_allocation = st.slider(
+            "Minimum Allocation per Supplier",
+            min_value=0,
+            max_value=(100 // display_df[analysis_dimension].nunique()),
+            value=0,
+            step=1,
+            format="%d%%",
+            help="Minimum percentage allocation per supplier"
+        )
+    with constraint_col2:
+        max_allocation = st.slider(
+            "Maximum Allocation per Supplier",
+            min_value=min_allocation,
+            max_value=100,
+            value=(100 - min_allocation),
+            step=5,
+            format="%d%%",
+            help="Maximum percentage allocation to any single supplier"
+        )
+    
+    # Run optimization button
+    if st.button("Optimize Portfolio", type="primary"):
+        with st.spinner("Running optimization..."):
+            optimized_allocation, metrics = simple_optimize_portfolio(
+                filtered_df,
+                analysis_dimension,
+                cost_weight,
+                diversity_weight,
+                target_spend,
+                min_allocation,
+                max_allocation
             )
             
-            # Price change percentage
-            price_change = st.slider(
-                "Price Change Percentage",
-                min_value=-50,
-                max_value=50,
-                value=20,
-                step=5,
-                format="%d%%"
-            )
-            
-            # Show current price
-            current_price = current_ciu.get(target_entity, 0)
-            new_price = current_price * (1 + price_change/100)
-            
-            st.metric(
-                "CIU Price", 
-                f"${new_price:.2f}",
-                f"{price_change:+d}%",
-                delta_color="inverse" if price_change > 0 else "normal"
-            )
-            
-            change_dict = {target_entity: price_change}
-            scenario_type_key = 'price_change'
-            
-        else:  # Budget Change
-            st.subheader("Budget Change Scenario")
-            
-            # Budget change percentage
-            budget_change = st.slider(
-                "Budget Change Percentage",
-                min_value=-30,
-                max_value=30,
-                value=-15,
-                step=5,
-                format="%d%%"
-            )
-            
-            # Show current and new budget
-            current_budget = sum(current_allocation.values())
-            new_budget = current_budget * (1 + budget_change/100)
-            
-            st.metric(
-                "Total Budget", 
-                f"${new_budget:.2f}",
-                f"{budget_change:+d}%",
-                delta_color="normal" if budget_change >= 0 else "inverse"
-            )
-            
-            change_dict = budget_change
-            scenario_type_key = 'budget_change'
-        
-        # Optimization weights
-        col1, col2 = st.columns(2)
-        with col1:
-            cost_weight = st.slider(
-                "Cost Importance",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.5,
-                step=0.1,
-                key="scenario_cost_weight"
-            )
-        with col2:
-            diversity_weight = 1.0 - cost_weight
-            st.slider(
-                "Diversity Importance",
-                min_value=0.0,
-                max_value=1.0,
-                value=diversity_weight,
-                step=0.1,
-                disabled=True,
-                key="scenario_diversity_weight"
-            )
-        
-        # Run scenario button
-        if st.button("Run Scenario", type="primary"):
-            with st.spinner("Running scenario..."):
-                scenario_allocation, scenario_metrics = run_simple_scenario(
-                    filtered_df,
-                    analysis_dimension,
-                    scenario_type_key,
-                    change_dict,
-                    current_allocation,
-                    cost_weight,
-                    diversity_weight
+            if not metrics:
+                st.error("Optimization failed. Please adjust your parameters and try again.")
+            else:
+                # Display optimization results
+                st.subheader("Optimization Results")
+
+                 # Create comparison table
+                comparison_data = []
+                current_allocation = dict(zip(allocation_df[analysis_dimension], allocation_df['Flavor Spend_sum']))
+                
+                for entity in set(list(current_allocation.keys()) + list(optimized_allocation.keys())):
+                    current = current_allocation.get(entity, 0)
+                    optimized = optimized_allocation.get(entity, 0)
+                    change = optimized - current
+                    change_pct = (change / current * 100) if current > 0 else 0
+                    
+                    comparison_data.append({
+                        analysis_dimension: entity,
+                        'Current': current,
+                        'Optimized': optimized,
+                        'Change': change,
+                        'Change %': change_pct
+                    })
+                
+                comparison_df = pd.DataFrame(comparison_data)
+                comparison_df = comparison_df.sort_values('Optimized', ascending=False)
+                
+                # Calculate percentages for visualization
+                comparison_df['Current %'] = comparison_df['Current'] / comparison_df['Current'].sum() * 100
+                comparison_df['Optimized %'] = comparison_df['Optimized'] / comparison_df['Optimized'].sum() * 100
+                
+                # Format for display
+                comparison_df['Current'] = comparison_df['Current'].round(2)
+                comparison_df['Optimized'] = comparison_df['Optimized'].round(2)
+                comparison_df['Change'] = comparison_df['Change'].round(2)
+                comparison_df['Change %'] = comparison_df['Change %'].round(2)
+                comparison_df['Current %'] = comparison_df['Current %'].round(2)
+                comparison_df['Optimized %'] = comparison_df['Optimized %'].round(2)
+
+                # Metrics comparison
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                with metric_col1:
+                    st.metric("Total Spend ($)", comparison_df['Optimized'].sum().round(2),
+                            delta=f"{comparison_df['Optimized'].sum() - comparison_df['Current'].sum():,.2f} ({(comparison_df['Optimized'].sum() - comparison_df['Current'].sum()) / comparison_df['Current'].sum() * 100:.1f}%)",
+                            delta_color="inverse" if comparison_df['Optimized'].sum() >= comparison_df['Current'].sum() else "normal")
+                with metric_col2:
+                    st.metric(
+                        "Average CIU",
+                        f"${metrics['weighted_avg_ciu']:.2f}",
+                        f"{metrics['ciu_change']:.1f}%",
+                        delta_color="normal" if metrics['ciu_change'] >= 0 else "inverse"
+                    )
+                    st.caption(f"Cost Weight: {cost_weight:.1f}")
+                with metric_col3:
+                    st.metric(
+                        "HHI Index", 
+                        f"{metrics['hhi']:.1f}",
+                        f"{metrics['hhi_change']:.1f}%",
+                        delta_color="normal" if metrics['hhi_change'] >= 0 else "inverse"
+                    )
+                    st.caption(f"Diversity Weight: {diversity_weight:.1f}")
+                with metric_col4:
+                    # Overall optimization metric
+                    optimization_score = (metrics['ciu_change'] + metrics['hhi_change'])/2
+                    st.metric(
+                        "Overall Improvement", 
+                        f"{optimization_score:.1f}%",
+                        delta_color="normal" if optimization_score >= 0 else "inverse"
+                    )
+                
+                # Show comparison chart
+                fig = go.Figure()
+                
+                fig.add_trace(go.Bar(
+                    x=comparison_df[analysis_dimension],
+                    y=comparison_df['Current %'],
+                    name='Current Allocation (%)',
+                    marker_color='lightblue'
+                ))
+                
+                fig.add_trace(go.Bar(
+                    x=comparison_df[analysis_dimension],
+                    y=comparison_df['Optimized %'],
+                    name='Optimized Allocation (%)',
+                    marker_color='lightgreen'
+                ))
+                
+                fig.update_layout(
+                    title='Current vs. Optimized Allocation (%)',
+                    xaxis_title=analysis_dimension,
+                    yaxis_title='Allocation (%)',
+                    barmode='group',
+                    template='plotly_white'
                 )
                 
-                if not scenario_metrics:
-                    st.error("Scenario analysis failed. Please adjust your parameters and try again.")
-                else:
-                    # Display scenario results
-                    st.subheader("Scenario Results")
-                    
-                    # Metrics comparison
-                    metric_col1, metric_col2, metric_col3 = st.columns(3)
-                    with metric_col1:
-                        st.metric(
-                            "Average CIU", 
-                            f"${scenario_metrics['weighted_avg_ciu']:.2f}",
-                            f"{scenario_metrics['ciu_change']:.1f}%",
-                            delta_color="normal" if scenario_metrics['ciu_change'] >= 0 else "inverse"
-                        )
-                        st.caption(f"Cost Weight: {cost_weight:.1f}")
-                    with metric_col2:
-                        st.metric(
-                            "HHI Index", 
-                            f"{scenario_metrics['hhi']:.1f}",
-                            f"{scenario_metrics['hhi_change']:.1f}%",
-                            delta_color="normal" if scenario_metrics['hhi_change'] >= 0 else "inverse"
-                        )
-                        st.caption(f"Diversity Weight: {diversity_weight:.1f}")
-                    with metric_col3:
-                        # Overall optimization metric
-                        optimization_score = (scenario_metrics['ciu_change'] + scenario_metrics['hhi_change'])/2
-                        st.metric(
-                            "Overall Improvement", 
-                            f"{optimization_score:.1f}%",
-                            delta_color="normal" if optimization_score >= 0 else "inverse"
-                        )
-                    
-                    # Create comparison table
-                    comparison_data = []
-                    for entity in set(list(current_allocation.keys()) + list(scenario_allocation.keys())):
-                        current = current_allocation.get(entity, 0)
-                        scenario = scenario_allocation.get(entity, 0)
-                        change = scenario - current
-                        change_pct = (change / current * 100) if current > 0 else 0
-                        
-                        comparison_data.append({
-                            analysis_dimension: entity,
-                            'Current': current,
-                            'Scenario': scenario,
-                            'Change': change,
-                            'Change %': change_pct
-                        })
-                    
-                    comparison_df = pd.DataFrame(comparison_data)
-                    comparison_df = comparison_df.sort_values('Scenario', ascending=False)
-                    
-                    # Calculate percentages for visualization
-                    comparison_df['Current %'] = comparison_df['Current'] / comparison_df['Current'].sum() * 100
-                    comparison_df['Scenario %'] = comparison_df['Scenario'] / comparison_df['Scenario'].sum() * 100
-                    
-                    # Format for display
-                    comparison_df['Current'] = comparison_df['Current'].round(2)
-                    comparison_df['Scenario'] = comparison_df['Scenario'].round(2)
-                    comparison_df['Change'] = comparison_df['Change'].round(2)
-                    comparison_df['Change %'] = comparison_df['Change %'].round(2)
-                    comparison_df['Current %'] = comparison_df['Current %'].round(2)
-                    comparison_df['Scenario %'] = comparison_df['Scenario %'].round(2)
-                    
-                    # Show comparison chart
-                    fig = go.Figure()
-                    
-                    fig.add_trace(go.Bar(
-                        x=comparison_df[analysis_dimension],
-                        y=comparison_df['Current %'],
-                        name='Current Allocation (%)',
-                        marker_color='lightblue'
-                    ))
-                    
-                    fig.add_trace(go.Bar(
-                        x=comparison_df[analysis_dimension],
-                        y=comparison_df['Scenario %'],
-                        name='Scenario Allocation (%)',
-                        marker_color='orange'
-                    ))
-                    
-                    fig.update_layout(
-                        title='Current vs. Scenario Allocation (%)',
-                        xaxis_title=analysis_dimension,
-                        yaxis_title='Allocation (%)',
-                        barmode='group',
-                        template='plotly_white'
-                    )
-                    
-                    st.plotly_chart(fig)
-                    
-                    # Show comparison table
-                    st.dataframe(comparison_df)
-                    
-                    # Key observations
-                    st.subheader("Key Observations")
-                    
-                    # Find top changes
-                    top_changes = comparison_df.sort_values(by='Change', key=abs, ascending=False).head(5)
-                    
-                    for _, row in top_changes.iterrows():
-                        if row['Change'] > 0:
-                            st.info(f"Increase allocation to {row[analysis_dimension]} by ${row['Change']:,.2f} ({row['Change %']:.1f}%)")
-                        elif row['Change'] < 0:
-                            st.warning(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")
-                    
-                    # Summary based on scenario type
-                    if scenario_type == "Price Change":
-                        target = list(change_dict.keys())[0]
-                        change_pct = change_dict[target]
-                        target_row = comparison_df[comparison_df[analysis_dimension] == target]
-                        
-                        if not target_row.empty:
-                            change = target_row['Change'].iloc[0]
-                            if change < 0:
-                                st.success(f"The {change_pct}% price increase for {target} resulted in reducing its allocation by ${abs(change):,.2f}")
-                            else:
-                                st.info(f"Despite the {change_pct}% price increase for {target}, the optimal allocation still increased by ${change:,.2f}")
-                    else:
-                        st.success(f"The {budget_change}% budget change was optimally distributed while maintaining the best balance between cost and supplier diversity.")
+                st.plotly_chart(fig)
+                
+                # Show comparison table
+                st.dataframe(comparison_df)
+                
+                # Key recommendations
+                st.subheader("Key Recommendations")
+                
+                # Find top increases and decreases
+                top_changes = comparison_df.sort_values(by='Change', key=abs, ascending=False).head(5)
+                
+                for _, row in top_changes.iterrows():
+                    if row['Change'] > 0:
+                        st.info(f"Increase allocation to {row[analysis_dimension]} by ${row['Change']:,.2f} ({row['Change %']:.1f}%)")
+                    elif row['Change'] < 0:
+                        st.warning(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")

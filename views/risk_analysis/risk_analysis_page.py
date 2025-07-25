@@ -40,8 +40,8 @@ def calculate_price_volatility(df, group_columns):
     """
     grouped = df.groupby(group_columns)['Total CIU curr / vol'].agg(['mean', 'std']).reset_index()
     grouped['CV'] = grouped['std'] / grouped['mean']
-    grouped['Volatility Score'] = grouped['CV'].apply(lambda x: 
-        3 if x > 0.3 else (2 if x > 0.15 else 1))
+    grouped = grouped.dropna()
+    grouped['Volatility Score'] = grouped['CV'].apply(lambda x: 3 if x > 0.3 else (2 if x > 0.15 else 1))
     
     return grouped
 
@@ -133,8 +133,8 @@ def main():
         st.warning("Please upload your data on the Data Upload page to start analyzing Risks.")
         return
     
-    tabs = st.tabs(["Supplier Concentration Risk", "Price Volatility Risk", "Supply Chain Disruption Impact"])
-    
+    tabs = st.tabs(["Supplier Concentration Risk", "Price Volatility Risk"])
+
     with tabs[0]:
         st.header("Supplier Concentration Risk Assessment")
         st.markdown("""
@@ -171,8 +171,6 @@ def main():
                 st.metric("HHI Index", f"{hhi:.1f}")
             with metrics_col2:
                 st.metric("Concentration Level", concentration_level)
-            with metrics_col3:
-                st.metric("Risk Score", f"{risk_score}/3")
             
             # Display market share visualization
             top_suppliers = supplier_data.sort_values('Flavor Spend', ascending=False).head(10)
@@ -310,7 +308,7 @@ def main():
             )
             
             st.plotly_chart(fig)
-    
+
     with tabs[1]:
         st.header("Price Volatility Risk Analysis")
         st.markdown("""
@@ -319,6 +317,12 @@ def main():
         - **0.15 < CV < 0.30**: Moderate volatility
         - **CV > 0.30**: High volatility
         """)
+
+        # Write a warning that when there is only single row is present, CV cannot be calculated. Thus these records will be excluded from the analysis.
+        st.warning("""
+        Note: When there is only a single row present for a group, CV cannot be calculated. These records will be excluded from the analysis.
+        """)
+        
         
         volatility_dims = st.multiselect(
             "Select dimensions to analyze price volatility",
@@ -371,125 +375,137 @@ def main():
             )
             
             st.plotly_chart(fig)
-            
-            # Top volatile items
-            st.subheader("Top 10 Most Volatile Items")
-            top_volatile = volatility_data.sort_values('CV', ascending=False).head(10)
+
+            # Most Volatile Items
+            st.subheader("Most Volatile Items")
+
+            count = st.slider(
+                "Number of Top Volatile Items to Display",
+                min_value=5,
+                max_value=len(volatility_data),
+                value=10,
+                step=5,
+                help="Select how many top volatile items to display"
+            )
+
+            top_volatile = volatility_data.sort_values('CV', ascending=False).head(count)
             
             formatted_top = top_volatile.copy()
             formatted_top['CV'] = (formatted_top['CV'] * 100).round(2).astype(str) + '%'
             formatted_top['mean'] = formatted_top['mean'].round(2)
             formatted_top['std'] = formatted_top['std'].round(2)
+
+            formatted_top = formatted_top.reset_index(drop=True)
             
             st.dataframe(formatted_top)
             
             # Full volatility data table
             # with st.expander("View Complete Volatility Analysis"):
             #     st.dataframe(display_data.sort_values('CV', ascending=False))
-    
-    with tabs[2]:
-        st.header("Supply Chain Disruption Impact Analysis")
+
+    # with tabs[2]:
+    #     st.header("Supply Chain Disruption Impact Analysis")
         
-        # Overall supply chain risk assessment
-        risk_data = calculate_supply_chain_risk(df)
+    #     # Overall supply chain risk assessment
+    #     risk_data = calculate_supply_chain_risk(df)
         
-        st.subheader("Supply Chain Risk Assessment")
+    #     st.subheader("Supply Chain Risk Assessment")
         
-        metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
-        with metrics_col1:
-            st.metric("Overall Risk Level", risk_data["Risk Level"])
-        with metrics_col2:
-            st.metric("Risk Score", f"{risk_data['Overall Risk Score']}/9")
-        with metrics_col3:
-            st.metric("Geographic Risk", f"{risk_data['Geographic Risk']}/3")
+    #     metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+    #     with metrics_col1:
+    #         st.metric("Overall Risk Level", risk_data["Risk Level"])
+    #     with metrics_col2:
+    #         st.metric("Risk Score", f"{risk_data['Overall Risk Score']}/9")
+    #     with metrics_col3:
+    #         st.metric("Geographic Risk", f"{risk_data['Geographic Risk']}/3")
         
-        # Risk factors table
-        risk_factors_df = pd.DataFrame({
-            "Risk Factor": [
-                "Geographic Diversity", 
-                "Supplier Diversity",
-                "Multi-flavor Sourcing"
-            ],
-            "Metric": [
-                f"{risk_data['Region Count']} regions, {risk_data['Country Count']} countries",
-                f"{risk_data['Supplier Count']} suppliers",
-                risk_data["Multi-flavor %"]
-            ],
-            "Risk Score": [
-                f"{risk_data['Geographic Risk']}/3",
-                f"{risk_data['Supplier Risk']}/3",
-                f"{risk_data['Multi-flavor Risk']}/3"
-            ]
-        })
+    #     # Risk factors table
+    #     risk_factors_df = pd.DataFrame({
+    #         "Risk Factor": [
+    #             "Geographic Diversity", 
+    #             "Supplier Diversity",
+    #             "Multi-flavor Sourcing"
+    #         ],
+    #         "Metric": [
+    #             f"{risk_data['Region Count']} regions, {risk_data['Country Count']} countries",
+    #             f"{risk_data['Supplier Count']} suppliers",
+    #             risk_data["Multi-flavor %"]
+    #         ],
+    #         "Risk Score": [
+    #             f"{risk_data['Geographic Risk']}/3",
+    #             f"{risk_data['Supplier Risk']}/3",
+    #             f"{risk_data['Multi-flavor Risk']}/3"
+    #         ]
+    #     })
         
-        st.dataframe(risk_factors_df, hide_index=True)
+    #     st.dataframe(risk_factors_df, hide_index=True)
         
-        # Disruption simulation
-        st.subheader("Disruption Scenario Simulation")
-        st.markdown("""
-        Simulate the impact of supply chain disruptions by selecting a disruption type and impact level.
-        """)
+    #     # # Disruption simulation
+    #     # st.subheader("Disruption Scenario Simulation")
+    #     # st.markdown("""
+    #     # Simulate the impact of supply chain disruptions by selecting a disruption type and impact level.
+    #     # """)
         
-        sim_col1, sim_col2 = st.columns(2)
-        with sim_col1:
-            disruption_type = st.selectbox(
-                "Disruption Type",
-                options=["Supplier Disruption", "Regional Disruption"],
-                index=0
-            )
-        with sim_col2:
-            impact_percentage = st.slider(
-                "Impact Percentage", 
-                min_value=10,
-                max_value=90,
-                value=50,
-                step=10,
-                help="Percentage of supply affected by the disruption"
-            )
+    #     # sim_col1, sim_col2 = st.columns(2)
+    #     # with sim_col1:
+    #     #     disruption_type = st.selectbox(
+    #     #         "Disruption Type",
+    #     #         options=["Supplier Disruption", "Regional Disruption"],
+    #     #         index=0
+    #     #     )
+    #     # with sim_col2:
+    #     #     impact_percentage = st.slider(
+    #     #         "Impact Percentage", 
+    #     #         min_value=10,
+    #     #         max_value=90,
+    #     #         value=50,
+    #     #         step=10,
+    #     #         help="Percentage of supply affected by the disruption"
+    #     #     )
         
-        # Run simulation
-        impact_metrics, affected_df = simulate_disruption_impact(df, disruption_type, impact_percentage)
+    #     # # Run simulation
+    #     # impact_metrics, affected_df = simulate_disruption_impact(df, disruption_type, impact_percentage)
         
-        # Display impact metrics
-        metrics_col1, metrics_col2 = st.columns(2)
-        with metrics_col1:
-            st.metric("Affected Spend", f"${impact_metrics['Affected Spend']:,.2f}")
-            st.metric("Affected Volume", f"{impact_metrics['Affected Volume']:,.2f}")
-        with metrics_col2:
-            st.metric("Affected Spend %", f"{impact_metrics['Affected Spend %']:.2f}%")
-            st.metric("Affected Volume %", f"{impact_metrics['Affected Volume %']:.2f}%")
+    #     # # Display impact metrics
+    #     # metrics_col1, metrics_col2 = st.columns(2)
+    #     # with metrics_col1:
+    #     #     st.metric("Affected Spend", f"${impact_metrics['Affected Spend']:,.2f}")
+    #     #     st.metric("Affected Volume", f"{impact_metrics['Affected Volume']:,.2f}")
+    #     # with metrics_col2:
+    #     #     st.metric("Affected Spend %", f"{impact_metrics['Affected Spend %']:.2f}%")
+    #     #     st.metric("Affected Volume %", f"{impact_metrics['Affected Volume %']:.2f}%")
         
-        impact_col1, impact_col2 = st.columns(2)
-        with impact_col1:
-            st.metric("Products Affected", impact_metrics['Number of Products Affected'])
-        with impact_col2:
-            st.metric("Flavors Affected", impact_metrics['Number of Flavors Affected'])
+    #     # impact_col1, impact_col2 = st.columns(2)
+    #     # with impact_col1:
+    #     #     st.metric("Products Affected", impact_metrics['Number of Products Affected'])
+    #     # with impact_col2:
+    #     #     st.metric("Flavors Affected", impact_metrics['Number of Flavors Affected'])
         
-        # Visualize affected products/flavors
-        if disruption_type == "Supplier Disruption":
-            dimension = "Supplier"
-        else:
-            dimension = "Region"
+    #     # # Visualize affected products/flavors
+    #     # if disruption_type == "Supplier Disruption":
+    #     #     dimension = "Supplier"
+    #     # else:
+    #     #     dimension = "Region"
         
-        affected_summary = affected_df.groupby("Product")["Flavor Spend"].sum().reset_index()
-        affected_summary = affected_summary.sort_values("Flavor Spend", ascending=False)
+    #     # affected_summary = affected_df.groupby("Product")["Flavor Spend"].sum().reset_index()
+    #     # affected_summary = affected_summary.sort_values("Flavor Spend", ascending=False)
         
-        fig = px.bar(
-            affected_summary.head(10),
-            x="Product",
-            y="Flavor Spend",
-            title=f"Top 10 Affected Products by {disruption_type}",
-            color_discrete_sequence=['red']
-        )
+    #     # fig = px.bar(
+    #     #     affected_summary.head(10),
+    #     #     x="Product",
+    #     #     y="Flavor Spend",
+    #     #     title=f"Top 10 Affected Products by {disruption_type}",
+    #     #     color_discrete_sequence=['red']
+    #     # )
         
-        fig.update_layout(
-            xaxis_title="Product",
-            yaxis_title="Affected Spend ($)",
-            template='plotly_white'
-        )
+    #     # fig.update_layout(
+    #     #     xaxis_title="Product",
+    #     #     yaxis_title="Affected Spend ($)",
+    #     #     template='plotly_white'
+    #     # )
         
-        st.plotly_chart(fig)
+    #     # st.plotly_chart(fig)
         
-        # Display affected items
-        with st.expander("View Affected Items Details"):
-            st.dataframe(affected_df)
+    #     # # Display affected items
+    #     # with st.expander("View Affected Items Details"):
+    #     #     st.dataframe(affected_df)
