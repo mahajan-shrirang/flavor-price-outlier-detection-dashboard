@@ -238,7 +238,7 @@ def main():
             detail_df = supplier_data.copy()
             detail_df['Market Share'] = (detail_df['Market Share'] * 100).round(2).astype(str) + '%'
             detail_df['HHI Contribution'] = detail_df['HHI Contribution'].round(2)
-            st.dataframe(detail_df)
+            st.dataframe(detail_df.reset_index(drop=True))
             
         else:
             # Group by selected dimensions and show concentration by group

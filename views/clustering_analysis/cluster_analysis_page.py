@@ -99,7 +99,7 @@ def main():
         st.divider()
 
         st.subheader("Clusters with Highest Deviation in CIU curr / vol")
-        top_clusters = group_list_grouped.sort_values(('CIU curr / vol', 'std'), ascending=False).head(10).reset_index()
+        top_clusters = group_list_grouped.sort_values(('CIU curr / vol', 'std'), ascending=False).reset_index()
 
         top_clusters.columns = ['Group', 'Cluster'] + [f'{col[0]} {str(col[1]).capitalize()}' for col in top_clusters.columns[2:]]
 
@@ -111,4 +111,4 @@ def main():
             selected_cluster = selected_row['Cluster']
 
             cluster_data = group_list[(group_list['Group'] == selected_group) & (group_list['Cluster'] == selected_cluster)]
-            st.dataframe(cluster_data)
+            st.dataframe(cluster_data.reset_index(drop=True))

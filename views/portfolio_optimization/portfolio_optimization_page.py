@@ -356,19 +356,21 @@ def main():
     st.subheader("Allocation Constraints")
     constraint_col1, constraint_col2 = st.columns(2)
     with constraint_col1:
+        minimum_allocation_upper_limit = (100 // display_df[analysis_dimension].nunique())
         min_allocation = st.slider(
             "Minimum Allocation per Supplier",
             min_value=0,
-            max_value=(100 // display_df[analysis_dimension].nunique()),
+            max_value=minimum_allocation_upper_limit,
             value=0,
             step=1,
             format="%d%%",
             help="Minimum percentage allocation per supplier"
         )
     with constraint_col2:
+        maximum_allocation_lower_limit = 100 - ((display_df[analysis_dimension].nunique() - 1) * minimum_allocation_upper_limit)
         max_allocation = st.slider(
             "Maximum Allocation per Supplier",
-            min_value=min_allocation,
+            min_value=maximum_allocation_lower_limit,
             max_value=100,
             value=(100 - min_allocation),
             step=5,
@@ -392,6 +394,8 @@ def main():
             if not metrics:
                 st.error("Optimization failed. Please adjust your parameters and try again.")
             else:
+                st.session_state['optimized_allocation'] = optimized_allocation
+                st.session_state['metrics'] = metrics
                 # Display optimization results
                 st.subheader("Optimization Results")
 
@@ -487,16 +491,24 @@ def main():
                 st.plotly_chart(fig)
                 
                 # Show comparison table
-                st.dataframe(comparison_df)
+                st.subheader("Allocation Comparison")
+                st.dataframe(comparison_df.reset_index(drop=True).rename(
+                    columns={
+                        'Current': 'Current Spend ($)',
+                        'Optimized': 'Optimized Spend ($)',
+                        'Change': 'Change ($)',
+                        'Change %': 'Change (%)'
+                    }
+                ))
                 
                 # Key recommendations
                 st.subheader("Key Recommendations")
                 
                 # Find top increases and decreases
-                top_changes = comparison_df.sort_values(by='Change', key=abs, ascending=False).head(5)
+                top_changes = comparison_df.sort_values(by='Change', key=abs, ascending=False)
                 
                 for _, row in top_changes.iterrows():
                     if row['Change'] > 0:
-                        st.info(f"Increase allocation to {row[analysis_dimension]} by ${row['Change']:,.2f} ({row['Change %']:.1f}%)")
+                        st.success(f"Increase allocation to {row[analysis_dimension]} by ${row['Change']:,.2f} ({row['Change %']:.1f}%)")
                     elif row['Change'] < 0:
-                        st.warning(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")
+                        st.error(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")
