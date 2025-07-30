@@ -18,7 +18,7 @@ def main():
         st.session_state['data'] = df  # Store the cleaned data in session state
 
         st.subheader("Cleaned Data Preview")
-        st.write(df)
+        st.dataframe(df)
 
         st.subheader("Data Summary")
         st.write(df.describe())

@@ -12,10 +12,10 @@ def convert_to_float(df: pd.DataFrame) -> pd.DataFrame:
     """
     df['FG volume / year'] = df['FG volume / year'].astype(str)
     df = df.drop(df[df['FG volume / year'].str.contains('-')].index)
-    df['FG volume / year'] = df['FG volume / year'].astype(float)
-    df['CIU curr / vol'] = df['CIU curr / vol'].astype(float)
-    df['Flavor Spend'] = df['Flavor Spend'].astype(float)
-    df['Total CIU curr / vol'] = df['Total CIU curr / vol'].astype(float)
+    df['FG volume / year'] = df['FG volume / year'].astype(pd.Float64Dtype())
+    df['CIU curr / vol'] = df['CIU curr / vol'].astype(pd.Float64Dtype())
+    df['Flavor Spend'] = df['Flavor Spend'].astype(pd.Float64Dtype())
+    df['Total CIU curr / vol'] = df['Total CIU curr / vol'].astype(pd.Float64Dtype())
 
     df['Multiple Flavors'] = df['Multiple Flavors'].fillna(0)
     df['Multiple Flavors'] = df['Multiple Flavors'].map(lambda row: 1 if row in ['x', 'y'] else 0)
