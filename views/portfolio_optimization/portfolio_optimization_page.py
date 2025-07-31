@@ -570,8 +570,8 @@ def main():
         total_spend = df['Flavor Spend'].sum()
 
         optimized_df = df.groupby(analysis_dimensions).agg({'CIU curr / vol': lambda x: constraint_function(x), 'Flavor Spend': 'size'}).reset_index() # 25th percentile of CIU curr / vol
-        optimized_df.rename(columns={'CIU curr / vol': 'Optimized CIU [$]', 'Flavor Spend': 'Recond Count'}, inplace=True)
-        optimized_df = optimized_df.sort_values(by='Recond Count', ascending=False)
+        optimized_df.rename(columns={'CIU curr / vol': 'Optimized CIU [$]', 'Flavor Spend': 'Record Count'}, inplace=True)
+        optimized_df = optimized_df.sort_values(by='Record Count', ascending=False)
 
         # st.subheader("Count Display")
         # st.write(df.groupby(analysis_dimensions).size().reset_index(name='Count').sort_values(by='Count', ascending=False))
