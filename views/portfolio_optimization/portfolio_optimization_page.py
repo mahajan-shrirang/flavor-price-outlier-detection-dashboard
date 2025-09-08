@@ -214,14 +214,52 @@ def run_simple_scenario(df, analysis_dimension, scenario_type, change_value, cur
 def main():
     df: pd.DataFrame = st.session_state.get('data', None)
     if df is None:
-        st.title("Portfolio Optimization")
+        st.title("⚖️ Portfolio Optimization")
         st.warning("Please upload your data on the Data Upload page to start Portfolio Optimization.")
         return
     
     tabs = st.tabs(["Portfolio Optimization", "Flavor Spend Optimization"])
     
     with tabs[0]:
-        st.title("Portfolio Optimization")
+        st.title("⚖️ Portfolio Optimization")
+        
+        # Instructions for users
+        with st.expander("ℹ️ How to use this tab", expanded=False):
+            st.markdown("""
+            **What it does:** Helps you optimize your supplier allocation to balance cost savings with supply risk through mathematical optimization.
+            
+            **How to use it:**
+            
+            **Portfolio Optimization Tab:**
+            1. **Select dimension** to optimize (usually Supplier)
+            2. **Filter by products** if focusing on specific items
+            3. **Review current allocation** in the charts and tables
+            4. **Set your preferences**:
+               - Cost vs. Diversity importance (slider)
+               - Budget change (if any)
+               - Minimum/Maximum allocation per supplier
+            5. **Click "Optimize Portfolio"**
+            6. **Review recommendations** and implement changes
+            
+            **Flavor Spend Optimization Tab:**
+            1. **Select dimensions** for analysis
+            2. **Choose optimization method** (how aggressive to be)
+            3. **Apply filters** if needed
+            4. **Click on a row** in the results table
+            5. **Review potential savings** and feasibility
+            
+            **What you'll learn:**
+            - Optimal supplier allocation mix
+            - Potential cost savings from reallocation
+            - How to balance cost and risk
+            - Specific recommendations for spend changes
+            
+            **When to use this:**
+            - Annual supplier allocation reviews
+            - Cost reduction initiatives
+            - Risk rebalancing projects
+            - Strategic sourcing planning
+            """)
 
         st.markdown("""
         This tool helps you optimize your supplier allocation to balance cost, diversity, and risk.
@@ -518,7 +556,21 @@ def main():
                             st.error(f"Decrease allocation to {row[analysis_dimension]} by ${abs(row['Change']):,.2f} ({abs(row['Change %']):.1f}%)")
 
     with tabs[1]:
-        st.title("Flavor Spend Optimization")
+        st.title("⚖️ Flavor Spend Optimization")
+        
+        # Instructions for users (only show if not already shown above)
+        if not st.session_state.get('portfolio_instructions_shown', False):
+            with st.expander("ℹ️ How to use Flavor Spend Optimization", expanded=False):
+                st.markdown("""
+                **Flavor Spend Optimization Tab:**
+                1. **Select dimensions** for analysis
+                2. **Choose optimization method** (how aggressive to be)
+                3. **Apply filters** if needed
+                4. **Click on a row** in the results table
+                5. **Review potential savings** and feasibility
+                
+                This optimization focuses on cost reduction through statistical benchmarking rather than portfolio allocation.
+                """)
         
         st.markdown("""
         This tool helps you optimize your flavor spend to balance cost based on historical spend and current CIU.

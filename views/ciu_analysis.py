@@ -16,7 +16,34 @@ def get_outliers(df):
     return df, lower_bound, upper_bound
 
 def main():
-    st.title("CIU Analysis")
+    st.title("📊 CIU Analysis")
+    
+    # Instructions for users
+    with st.expander("ℹ️ How to use this tab", expanded=False):
+        st.markdown("""
+        **What it does:** Finds unusual pricing (outliers) in your data. Helps identify where you might be paying too much or too little compared to normal prices.
+        
+        **How to use it:**
+        1. **Select grouping options** - Choose how to group your data (e.g., by Flavor and Region)
+        2. **Pick a specific group** from the table by clicking on a row
+        3. **Review the results**:
+           - See how many outliers were found
+           - Look at the chart showing price distribution
+           - Check the outlier details table
+        
+        **What you'll learn:**
+        - Which products have unusual pricing
+        - How many items are priced outside normal ranges
+        - Specific records that need investigation
+        - Price ranges for different product groups
+        
+        **When to use this:**
+        - Monthly price reviews
+        - When you suspect pricing errors
+        - To validate supplier quotes
+        - Before contract negotiations
+        """)
+    
     df = st.session_state.get('data', None)
     if df is None:
         st.warning("Please upload your data on the Data Upload page to start analyzing CIU.")

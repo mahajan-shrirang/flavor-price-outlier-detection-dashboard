@@ -126,7 +126,42 @@ def simulate_disruption_impact(df, disruption_type, impact_percentage):
     return impact_metrics, affected_df
 
 def main():
-    st.title("Risk Analysis")
+    st.title("⚠️ Risk Analysis")
+    
+    # Instructions for users
+    with st.expander("ℹ️ How to use this tab", expanded=False):
+        st.markdown("""
+        **What it does:** Evaluates risks in your supply chain, including supplier concentration risk and price volatility.
+        
+        **How to use it:**
+        
+        **Supplier Concentration Risk Tab:**
+        1. **Select what to analyze** (e.g., Supplier, Region, Country)
+        2. **Choose grouping** if you want to break down by categories
+        3. **Review the HHI score**:
+           - Below 1500 = Low risk
+           - 1500-2500 = Moderate risk
+           - Above 2500 = High risk
+        4. **Study the charts** to see concentration patterns
+        
+        **Price Volatility Tab:**
+        1. **Select dimensions** to analyze (e.g., Product, Supplier)
+        2. **Review volatility metrics** in the top summary
+        3. **Check the distribution chart** to see overall price stability
+        4. **Adjust the slider** to see top volatile items
+        
+        **What you'll learn:**
+        - Whether you're too dependent on few suppliers (concentration risk)
+        - Which products have unstable pricing (volatility risk)
+        - Risk levels across different categories
+        - Areas needing risk mitigation attention
+        
+        **When to use this:**
+        - Quarterly risk reviews
+        - Before major sourcing decisions
+        - Supply chain strategy planning
+        - Risk mitigation planning
+        """)
     
     df = st.session_state.get('data', None)
     if df is None:

@@ -4,7 +4,32 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 def main():
-    st.title("Clustering Analysis")
+    st.title("🔍 Clustering Analysis")
+    
+    # Instructions for users
+    with st.expander("ℹ️ How to use this tab", expanded=False):
+        st.markdown("""
+        **What it does:** Groups similar suppliers, products, or categories together to help you understand patterns and segment your supply base.
+        
+        **How to use it:**
+        1. **Select grouping features** (how to initially organize your data)
+        2. **Choose clustering features** (what characteristics to use for grouping)
+        3. **Click "Train Clustering Model"** and wait for processing
+        4. **Review the results table** showing different clusters
+        5. **Click on a cluster** to see detailed information about that group
+        
+        **What you'll learn:**
+        - How suppliers naturally group together based on characteristics
+        - Which groups have the most price variation (risk)
+        - Patterns in your supply base you might not have noticed
+        - Strategic supplier segments for different approaches
+        
+        **When to use this:**
+        - Strategic supplier segmentation
+        - Understanding market structure
+        - Identifying supplier development opportunities
+        - Portfolio management planning
+        """)
 
     df: pd.DataFrame = st.session_state.get('data', None)
     if df is None:

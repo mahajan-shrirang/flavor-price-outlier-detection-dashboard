@@ -5,7 +5,29 @@ from utils.data_cleaning import convert_to_float
 
 
 def main():
-    st.title("Upload Data")
+    st.title("📤 Data Upload")
+    
+    # Instructions for users
+    with st.expander("ℹ️ How to use this tab", expanded=False):
+        st.markdown("""
+        **What it does:** This is your starting point. Upload your CSV data file and get an overview of your flavor spending data.
+        
+        **How to use it:**
+        1. Click **"Browse files"** and select your CSV file
+        2. Wait for the file to upload and process
+        3. Review the **data preview** to make sure everything looks correct
+        4. Check the **charts** to understand your data:
+           - See which countries and flavors you spend the most on
+           - View spending patterns across different categories
+        5. Once uploaded successfully, you can use all other tabs
+        
+        **What you'll see:**
+        - A table showing your cleaned data
+        - Summary statistics (averages, totals, etc.)
+        - Charts showing spending by country and flavor
+        - Total spending breakdowns
+        """)
+    
     uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)

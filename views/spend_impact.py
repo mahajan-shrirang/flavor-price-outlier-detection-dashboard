@@ -4,7 +4,36 @@ import pandas as pd
 
 
 def main():
-    st.title("Spend Impact Analysis")
+    st.title("💰 Spend Impact Analysis")
+    
+    # Instructions for users
+    with st.expander("ℹ️ How to use this tab", expanded=False):
+        st.markdown("""
+        **What it does:** Shows you where your money is going and helps identify your biggest spending areas and top-performing suppliers.
+        
+        **How to use it:**
+        1. **Choose what to analyze**:
+           - X-axis: What category to compare (e.g., Suppliers, Products)
+           - Y-axis: What metric to measure (e.g., Total Spend, Cost per Unit)
+        2. **Apply filters** if you want to focus on specific categories
+        3. **Set how many top items** to display (default is 10)
+        4. **Review the charts**:
+           - Bar chart shows top performers
+           - Pareto chart shows cumulative impact
+        
+        **What you'll learn:**
+        - Your top suppliers by spending
+        - Which products cost the most
+        - Where 80% of your spending goes (80/20 rule)
+        - Spending patterns across different dimensions
+        
+        **When to use this:**
+        - Budget planning and reviews
+        - Supplier performance evaluation
+        - Cost reduction initiatives
+        - Strategic sourcing decisions
+        """)
+    
     st.write("This page is under construction. Please check back later for updates.")
 
     df = st.session_state.get('data', None)

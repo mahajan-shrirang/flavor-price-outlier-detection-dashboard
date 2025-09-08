@@ -17,6 +17,21 @@ st.set_page_config(page_title="Flavor Data Dashboard", page_icon=":bar_chart:", 
 with st.sidebar:
     st.title("Flavor Data Dashboard")
     st.write("Select a page to navigate:")
+    
+    # Quick help section
+    with st.expander("💡 Quick Start Guide"):
+        st.markdown("""
+        **New to the dashboard?**
+        1. Start with **📤 Data Upload**
+        2. Try **💰 Spend Impact** for quick insights
+        3. Use **📊 CIU Analysis** to find pricing errors
+        4. Explore **🤖 AI Recommendations** for savings
+        5. Check **⚠️ Risk Analysis** quarterly
+        6. Use **⚖️ Portfolio Optimization** for strategy
+
+        💡 *Tip: Click the ℹ️ icon in each tab for detailed instructions*
+        """)
+    
     page = option_menu(
         menu_title=None,
         options=["Data Upload", 'CIU Analysis', "Spend Impact", "AI Recommendation", "Clustering Analysis", "Risk Analysis", "Portfolio Optimization"], 
